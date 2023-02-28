@@ -1,5 +1,7 @@
 const express = require('express');
 const mysql = require("mysql2");
+
+require('dotenv').config();
 const app = express();
 
 app.use(express.json())
@@ -10,7 +12,7 @@ app.use(express.urlencoded({ extended: false }))
 // 連線到rds
 const rds_connection = mysql.createConnection({
   user: 'admin',
-  password: 'PASSWORD',
+  password: process.env.PASSWORD,
   host: 'appworkswebdb.cblbc4wor1us.ap-northeast-1.rds.amazonaws.com',
   database: "assignment",
   // ssl: 'Amazon RDS'
