@@ -1,9 +1,7 @@
 const express = require('express');
 const mysql = require("mysql2");
-
-require('dotenv').config();
 const app = express();
-
+require('dotenv').config();
 app.use(express.json())
 
 app.use(express.urlencoded({ extended: false }))
@@ -15,7 +13,6 @@ const rds_connection = mysql.createConnection({
   password: process.env.PASSWORD,
   host: 'appworkswebdb.cblbc4wor1us.ap-northeast-1.rds.amazonaws.com',
   database: "assignment",
-  // ssl: 'Amazon RDS'
 });
 
 // 確認是否連上
@@ -26,15 +23,6 @@ rds_connection.connect((err) => {
     console.log('successfully connected');
   }
 });
-
-// simple query
-// rds_connection.query(
-//   'SELECT `name` FROM `user` WHERE `email` = "jonathanwu906@gmail.com"',
-//   function (err, results, fields) {
-//     console.log(results[0] === undefined); // results contains rows returned by server
-//     // console.log(fields); // fields contains extra meta data about results, if available
-//   }
-// );
 
 
 
@@ -49,41 +37,40 @@ app.get('/healthcheck', (req, res) => {
 // User Query API
 app.get('/users', (req, res) => {
 
-  const data = {
-    id: req.body.id,
-  }
+  const id = req.body.id;
 
-  rds_connection.query(
-    "SELECT id FROM user WHERE id = ?", [data.id],
-    function (err, results, fields) {
-      if (results[0] !== undefined) {
-        res.status(200);
-        res.send({
-          "data": {
-            "user": {
-              "id": 13,
-              "name": data.name,
-              "email": data.email
-            },
-            // "date": req.get(Date),
-          }
-        });
-      } else {
-        res.status(403);
-        res.send("User not existing");
-      };
-    })
+  const get_date = new Date().toUTCString();
+
+  rds_connection.query("SELECT * FROM user WHERE id = ?", [id], (err, results) => {
+    if (!results[0]) {
+      return res.status(403).send("User not existing")
+    } else if (err) {
+      return res.status(400).send("Client error")
+    } else {
+      return res.status(200).send({
+        "data": {
+          "user": {
+            "id": results[0].id,
+            "name": results[0].name,
+            "email": results[0].email
+          },
+          "date": get_date,
+        }
+      })
+    }
+  })
 
 })
 
 // User Sign Up APi
-app.post('/users', async (req, res) => {
+app.post('/users', (req, res) => {
 
-  const data = {
+  const userData = {
     name: req.body.name,
     email: req.body.email,
     password: req.body.password
   }
+
 
   // Password validation function
   function passwordValidation(password) {
@@ -99,43 +86,38 @@ app.post('/users', async (req, res) => {
     }
   }
 
-  function emailValidation(email) {
-    rds_connection.query(
-      "SELECT name FROM user WHERE email = ?", [email],
-      function (err, results, fields) {
-        if (err !== null) {
-          return true;
-        } else {
-          return
-        };
-      })
-  }
 
-  try {
-    // // Email already exists: 403
-    if (emailValidation(data.email)) {
-      res.status(403).send("Email already exists");
-    } else if (passwordValidation(data.password) === true && data.email.includes("@")) {
-      // Password and Email validation
-      rds_connection.execute("INSERT INTO user (name,email,password,created) VALUES (?,?,?,NOW())", [data.name, data.email, data.password]);
-      res.status(200);
-      res.send({
-        "data": {
-          "user": {
-            "id": 13,
-            "name": data.name,
-            "email": data.email
-          },
-          // "date": req.get(Date),
+  // Password and Email validation
+  if (passwordValidation(userData.password) && userData.email.includes("@")) {
+    const request_date = new Date().toUTCString();
+    rds_connection.query("INSERT INTO user (name, email, password, created) VALUES (?,?,?,NOW())", [userData.name, userData.email, userData.password], (err, results) => {
+      if (err) {
+        if (err.code === "ER_DUP_ENTRY") {
+          return res.status(403).send("Email already exists")
+        } else {
+          return res.status(400).send("Client error")
         }
-      });
-    } else {
-      res.send("Invalid password or email");
-    }
-  } catch (error) {
-    res.send("403 Client error");
+      } else {
+        return res.status(200).send({
+          "data": {
+            "user": {
+              "id": results.insertId,
+              "name": userData.name,
+              "email": userData.email
+            },
+            "date": request_date,
+          }
+        })
+      }
+    })
   }
-})
+  else {
+    return res.send("Invalid password or email");
+  }
+}
+);
+
+
 
 
 
