@@ -68,41 +68,46 @@ app.get('/healthcheck', (req, res) => {
 })
 
 // User Query API
-app.get('/users', (req, res) => {
+app.get('/users', async (req, res) => {
 
   const id = req.query.id;
   const contentType = req.headers["content-type"];
   const requestDate = req.headers["request-date"];
 
-
-  if (contentType === "application/json") {
-    rds_connection.query("SELECT * FROM user WHERE id = ?", [id], (err, results) => {
-      if (!results[0]) {
-        return res.status(403).send("User not existing")
-      } else if (err) {
-        return res.status(400).send("Client error")
-      } else {
-        return res.status(200).send({
-          "data": {
-            "user": {
-              "id": id,
-              "name": results[0].name,
-              "email": results[0].email
-            },
-            "date": requestDate,
+  try {
+    if (contentType === "application/json") {
+      await rds_connection.promise().query("SELECT * FROM user WHERE id = ?", [id])
+        .then((results) => {
+          if (!results[0]) {
+            return res.status(403).send("User not existing")
+          } else {
+            return res.status(200).send({
+              "data": {
+                "user": {
+                  "id": id,
+                  "name": results[0][0].name,
+                  "email": results[0][0].email
+                },
+                "date": requestDate,
+              }
+            })
           }
         })
-      }
-    })
-  } else {
-    return res.send("Content type is not JSON");
+        .catch((err) => {
+          return res.status(400).send(err)
+        })
+    } else {
+      return res.send("Content type is not JSON");
+    }
+  } catch (error) {
+    return res.send("Something went wrong")
   }
 
 
 })
 
 // User Sign Up APi
-app.post('/users', (req, res) => {
+app.post('/users', async (req, res) => {
 
   const contentType = req.headers["content-type"];
   const requestDate = req.headers["request-date"];
@@ -121,26 +126,26 @@ app.post('/users', (req, res) => {
 
       // Email and password validation
       if (emailValidation(userData.email) && passwordValidation(userData.password)) {
-        rds_connection.query("INSERT INTO user (name, email, password, created) VALUES (?,?,?,NOW())", [userData.name, userData.email, userData.password], (err, results) => {
-          if (err) {
-            if (err.code === "ER_DUP_ENTRY") {
-              return res.status(403).send("Email already exists")
-            } else {
-              return res.status(400).send("Client error")
-            }
-          } else {
+        await rds_connection.promise().query("INSERT INTO user (name, email, password, created) VALUES (?,?,?,NOW())", [userData.name, userData.email, userData.password])
+          .then((results) => {
             return res.status(200).send({
               "data": {
                 "user": {
-                  "id": results.insertId,
+                  "id": results[0].insertId.toString(),
                   "name": userData.name,
                   "email": userData.email
                 },
                 "date": requestDate,
               }
-            })
-          }
-        })
+            });
+          })
+          .catch((err) => {
+            if (err.code === "ER_DUP_ENTRY") {
+              return res.status(403).send("Email already exists")
+            } else {
+              return res.status(400).send("Client error")
+            }
+          })
       } else {
         return res.send("Invalid email or password");
       }
