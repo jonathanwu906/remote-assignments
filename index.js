@@ -1,7 +1,10 @@
 const express = require('express');
 const mysql = require("mysql2");
 const app = express();
-require('dotenv').config();
+const path = require('path')
+const dotenv = require('dotenv')
+
+dotenv.config({ path: path.join(__dirname, './.env') })
 app.use(express.json())
 
 app.use(express.urlencoded({ extended: false }))
