@@ -13,6 +13,7 @@ const rds_connection = mysql.createConnection({
   password: process.env.PASSWORD,
   host: 'appworkswebdb.cblbc4wor1us.ap-northeast-1.rds.amazonaws.com',
   database: "assignment",
+  port: 3306
 });
 
 // 確認是否連上
