@@ -24,6 +24,39 @@ rds_connection.connect((err) => {
   }
 });
 
+// Password validation function
+function passwordValidation(password) {
+  let type = 0;
+  if (/[A-Z]+/.test(password)) { type++ };
+  if (/[a-z]+/.test(password)) { type++ };
+  if (/[0-9]+/.test(password)) { type++ };
+  if (/[~`!@#$%^&*()_\-+={}\[\]:;"'<,>.?\/]+/.test(password)) { type++ };
+  if (type >= 3) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+// Email validation function
+function emailValidation(email) {
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
+  if (emailRegex.test(email)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+// Name validation function
+function nameValidation(name) {
+  const nameRegex = /[~`!@#$%^&*()_\-+={}\[\]:;"'<,>.?\/]+/;
+  if (nameRegex.test(name) || (name === "")) {
+    return false;
+  } else {
+    return true;
+  }
+}
 
 
 app.get('/', (req, res) => {
@@ -37,33 +70,42 @@ app.get('/healthcheck', (req, res) => {
 // User Query API
 app.get('/users', (req, res) => {
 
-  const id = req.body.id;
+  const id = req.query.id;
+  const contentType = req.headers["content-type"];
+  const requestDate = req.headers["request-date"];
 
-  const get_date = new Date().toUTCString();
 
-  rds_connection.query("SELECT * FROM user WHERE id = ?", [id], (err, results) => {
-    if (!results[0]) {
-      return res.status(403).send("User not existing")
-    } else if (err) {
-      return res.status(400).send("Client error")
-    } else {
-      return res.status(200).send({
-        "data": {
-          "user": {
-            "id": results[0].id,
-            "name": results[0].name,
-            "email": results[0].email
-          },
-          "date": get_date,
-        }
-      })
-    }
-  })
+  if (contentType === "application/json") {
+    rds_connection.query("SELECT * FROM user WHERE id = ?", [id], (err, results) => {
+      if (!results[0]) {
+        return res.status(403).send("User not existing")
+      } else if (err) {
+        return res.status(400).send("Client error")
+      } else {
+        return res.status(200).send({
+          "data": {
+            "user": {
+              "id": id,
+              "name": results[0].name,
+              "email": results[0].email
+            },
+            "date": requestDate,
+          }
+        })
+      }
+    })
+  } else {
+    return res.send("Content type is not JSON");
+  }
+
 
 })
 
 // User Sign Up APi
 app.post('/users', (req, res) => {
+
+  const contentType = req.headers["content-type"];
+  const requestDate = req.headers["request-date"];
 
   const userData = {
     name: req.body.name,
@@ -71,49 +113,45 @@ app.post('/users', (req, res) => {
     password: req.body.password
   }
 
+  // Content type validation
+  if (contentType === "application/json") {
 
-  // Password validation function
-  function passwordValidation(password) {
-    let type = 0;
-    if (/[A-Z]+/.test(password)) { type++ };
-    if (/[a-z]+/.test(password)) { type++ };
-    if (/[0-9]+/.test(password)) { type++ };
-    if (/[~`!@#$%^&*()_\-+={}\[\]:;"'<,>.?\/]+/.test(password)) { type++ };
-    if (type >= 3) {
-      return true;
-    } else {
-      return false;
-    }
-  }
+    // Name validation
+    if (nameValidation(userData.name)) {
 
-
-  // Password and Email validation
-  if (passwordValidation(userData.password) && userData.email.includes("@")) {
-    const request_date = new Date().toUTCString();
-    rds_connection.query("INSERT INTO user (name, email, password, created) VALUES (?,?,?,NOW())", [userData.name, userData.email, userData.password], (err, results) => {
-      if (err) {
-        if (err.code === "ER_DUP_ENTRY") {
-          return res.status(403).send("Email already exists")
-        } else {
-          return res.status(400).send("Client error")
-        }
-      } else {
-        return res.status(200).send({
-          "data": {
-            "user": {
-              "id": results.insertId,
-              "name": userData.name,
-              "email": userData.email
-            },
-            "date": request_date,
+      // Email and password validation
+      if (emailValidation(userData.email) && passwordValidation(userData.password)) {
+        rds_connection.query("INSERT INTO user (name, email, password, created) VALUES (?,?,?,NOW())", [userData.name, userData.email, userData.password], (err, results) => {
+          if (err) {
+            if (err.code === "ER_DUP_ENTRY") {
+              return res.status(403).send("Email already exists")
+            } else {
+              return res.status(400).send("Client error")
+            }
+          } else {
+            return res.status(200).send({
+              "data": {
+                "user": {
+                  "id": results.insertId,
+                  "name": userData.name,
+                  "email": userData.email
+                },
+                "date": requestDate,
+              }
+            })
           }
         })
+      } else {
+        return res.send("Invalid email or password");
       }
-    })
+    }
+    else {
+      return res.send("Invalid user name");
+    }
+  } else {
+    return res.send("Content type is not JSON");
   }
-  else {
-    return res.send("Invalid password or email");
-  }
+
 }
 );
 
