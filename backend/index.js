@@ -1,12 +1,14 @@
 const express = require('express');
 const mysql = require("mysql2");
-const app = express();
+const cors = require("cors");
 const path = require('path')
 const dotenv = require('dotenv')
+const app = express();
 
 dotenv.config({ path: path.join(__dirname, './.env') })
-app.use(express.json())
 
+app.use(express.json())
+app.use(cors());
 app.use(express.urlencoded({ extended: false }))
 
 
