@@ -17,11 +17,12 @@ function App() {
         email: email,
         password: password
       });
-      console.log(response.data.data.user);
+      console.log(response);
       setResponseData(JSON.stringify(response.data.data.user));
     } catch (error) {
       console.log(error);
     }
+
   };
 
   return (
