@@ -11,14 +11,17 @@ function App() {
 
   const signup = async () => {
 
-    await Axios.post("http://18.180.45.13:3000/users", {
-      name: name,
-      email: email,
-      password: password
-    }).then((response) => {
+    try {
+      const response = await Axios.post("http://18.180.45.13:3000/users", {
+        name: name,
+        email: email,
+        password: password
+      });
       console.log(response.data.data.user);
       setResponseData(JSON.stringify(response.data.data.user));
-    });
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (
@@ -43,6 +46,8 @@ function App() {
           }}
         /></label>
         <button onClick={signup}>signup</button>
+      </div>
+      <div>
         {responseData}
       </div>
     </div>
